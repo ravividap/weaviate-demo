@@ -7,10 +7,34 @@ import weaviate
 from weaviate.classes.config import Configure, Property, DataType
 from weaviate.classes.query import MetadataQuery
 import json
+import os
+from urllib import request, error
 
 
-# Constants
-VECTOR_DIMENSION = 384  # Placeholder dimension for demo vectors
+def get_azure_openai_embedding(text):
+    """Generate an embedding using an Azure OpenAI deployment."""
+    endpoint = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/")
+    deployment = os.environ["AZURE_OPENAI_EMBEDDING_DEPLOYMENT"]
+    api_key = os.environ["AZURE_OPENAI_API_KEY"]
+    api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01")
+    url = f"{endpoint}/openai/deployments/{deployment}/embeddings?api-version={api_version}"
+
+    req = request.Request(
+        url=url,
+        data=json.dumps({"input": text}).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "api-key": api_key,
+        },
+        method="POST",
+    )
+    try:
+        with request.urlopen(req, timeout=30) as response:
+            body = json.loads(response.read().decode("utf-8"))
+            return body["data"][0]["embedding"]
+    except error.HTTPError as exc:
+        details = exc.read().decode("utf-8")
+        raise RuntimeError(f"Azure OpenAI embedding request failed: {details}") from exc
 
 
 def connect_to_weaviate():
@@ -83,8 +107,7 @@ def create_data(client):
     # Insert data with vectors
     inserted_uuids = []
     for article in sample_articles:
-        # Generate a simple vector (in production, use proper embeddings)
-        vector = [0.1] * VECTOR_DIMENSION
+        vector = get_azure_openai_embedding(f"{article['title']}\n{article['content']}")
         
         uuid = articles.data.insert(
             properties=article,
@@ -172,16 +195,15 @@ def delete_data(client, uuid):
     print(f"✓ Deleted article: '{title}' (UUID: {uuid})")
 
 
-def vector_search(client):
+def vector_search(client, search_text):
     """Perform vector similarity search."""
     print("\n=== Vector Search ===")
     
     articles = client.collections.get("Article")
     
-    # Create a query vector (in production, this would be an embedding of a query text)
-    query_vector = [0.1] * VECTOR_DIMENSION
+    query_vector = get_azure_openai_embedding(search_text)
     
-    print("Performing vector similarity search...")
+    print(f"Performing vector similarity search for: '{search_text}'")
     response = articles.query.near_vector(
         near_vector=query_vector,
         limit=3,
@@ -210,6 +232,21 @@ def get_collection_info(client):
 def main():
     """Main function to demonstrate all operations."""
     print("=" * 60)
+
+    available_operations = ["create", "read", "filter", "info", "update", "search", "delete"]
+    selected_input = input(
+        "Choose operations to run (comma-separated, or 'all'): "
+    ).strip().lower()
+    if not selected_input or selected_input == "all":
+        selected_operations = set(available_operations)
+    else:
+        selected_operations = {op.strip() for op in selected_input.split(",") if op.strip()}
+        invalid_operations = selected_operations - set(available_operations)
+        if invalid_operations:
+            raise ValueError(
+                f"Invalid operation(s): {', '.join(sorted(invalid_operations))}. "
+                f"Valid options: {', '.join(available_operations)}, all"
+            )
     print("WEAVIATE DEMO - BASIC OPERATIONS")
     print("=" * 60)
     
@@ -217,34 +254,43 @@ def main():
         # Connect to Weaviate
         client = connect_to_weaviate()
         
-        # Create schema
-        create_schema(client)
-        
-        # CREATE: Insert data
-        uuids = create_data(client)
-        
-        # READ: Query all data
-        read_data(client)
-        
-        # READ with filters
-        read_data_with_filter(client)
-        
-        # Get collection info
-        get_collection_info(client)
-        
-        # UPDATE: Update first article
-        if uuids:
-            update_data(client, uuids[0])
-        
-        # Vector search
-        vector_search(client)
-        
-        # DELETE: Delete last article
-        if len(uuids) > 1:
-            delete_data(client, uuids[-1])
-        
-        # Final collection info
-        get_collection_info(client)
+        uuids = []
+        if selected_operations:
+            create_schema(client)
+
+        if "create" in selected_operations:
+            uuids = create_data(client)
+
+        if "read" in selected_operations:
+            read_data(client)
+
+        if "filter" in selected_operations:
+            read_data_with_filter(client)
+
+        if "info" in selected_operations:
+            get_collection_info(client)
+
+        if "update" in selected_operations:
+            if uuids:
+                update_data(client, uuids[0])
+            else:
+                print("Skipping update: no inserted articles available in this run")
+
+        if "search" in selected_operations:
+            search_text = input("Enter text to search for similar articles: ").strip()
+            if search_text:
+                vector_search(client, search_text)
+            else:
+                print("Skipping search: no query text provided")
+
+        if "delete" in selected_operations:
+            if len(uuids) > 1:
+                delete_data(client, uuids[-1])
+            else:
+                print("Skipping delete: no inserted articles available in this run")
+
+        if {"create", "delete", "update", "info"} & selected_operations:
+            get_collection_info(client)
         
         print("\n" + "=" * 60)
         print("✓ All operations completed successfully!")
