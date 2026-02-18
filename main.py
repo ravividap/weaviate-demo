@@ -9,9 +9,13 @@ from weaviate.classes.query import MetadataQuery
 import json
 
 
-def connect_to_weaviate(url="http://localhost:8080"):
+# Constants
+VECTOR_DIMENSION = 384  # Placeholder dimension for demo vectors
+
+
+def connect_to_weaviate():
     """Connect to Weaviate instance."""
-    print(f"Connecting to Weaviate at {url}...")
+    print("Connecting to Weaviate at http://localhost:8080...")
     client = weaviate.connect_to_local(host="localhost", port=8080)
     print("✓ Connected to Weaviate successfully!")
     return client
@@ -80,7 +84,7 @@ def create_data(client):
     inserted_uuids = []
     for article in sample_articles:
         # Generate a simple vector (in production, use proper embeddings)
-        vector = [0.1] * 384  # Placeholder 384-dimensional vector
+        vector = [0.1] * VECTOR_DIMENSION
         
         uuid = articles.data.insert(
             properties=article,
@@ -175,7 +179,7 @@ def vector_search(client):
     articles = client.collections.get("Article")
     
     # Create a query vector (in production, this would be an embedding of a query text)
-    query_vector = [0.1] * 384
+    query_vector = [0.1] * VECTOR_DIMENSION
     
     print("Performing vector similarity search...")
     response = articles.query.near_vector(
