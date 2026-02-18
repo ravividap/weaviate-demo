@@ -6,9 +6,8 @@ This script demonstrates basic CRUD operations and vector search with Weaviate.
 import weaviate
 from weaviate.classes.config import Configure, Property, DataType
 from weaviate.classes.query import MetadataQuery
-import json
 import os
-from urllib import request, error
+from langchain_openai import AzureOpenAIEmbeddings
 
 
 def get_azure_openai_embedding(text):
@@ -25,30 +24,13 @@ def get_azure_openai_embedding(text):
             + ", ".join(missing_env_vars)
         )
 
-    endpoint = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/")
-    deployment = os.environ["AZURE_OPENAI_EMBEDDING_DEPLOYMENT"]
-    api_key = os.environ["AZURE_OPENAI_API_KEY"]
-    api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01")
-    url = f"{endpoint}/openai/deployments/{deployment}/embeddings?api-version={api_version}"
-
-    req = request.Request(
-        url=url,
-        data=json.dumps({"input": text}).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "api-key": api_key,
-        },
-        method="POST",
+    embeddings_client = AzureOpenAIEmbeddings(
+        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/"),
+        azure_deployment=os.environ["AZURE_OPENAI_EMBEDDING_DEPLOYMENT"],
+        api_key=os.environ["AZURE_OPENAI_API_KEY"],
+        api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01"),
     )
-    try:
-        with request.urlopen(req, timeout=15) as response:
-            body = json.loads(response.read().decode("utf-8"))
-            if not body.get("data"):
-                raise RuntimeError(f"Azure OpenAI embedding response missing data: {body}")
-            return body["data"][0]["embedding"]
-    except error.HTTPError as exc:
-        details = exc.read().decode("utf-8")
-        raise RuntimeError(f"Azure OpenAI embedding request failed: {details}") from exc
+    return embeddings_client.embed_query(text)
 
 
 def connect_to_weaviate():

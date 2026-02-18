@@ -55,6 +55,8 @@ export AZURE_OPENAI_EMBEDDING_DEPLOYMENT="<your-embedding-deployment-name>"
 export AZURE_OPENAI_API_VERSION="2024-02-01"
 ```
 
+Embeddings are generated through `langchain-openai` (`AzureOpenAIEmbeddings`).
+
 Then execute the main script:
 
 ```bash
