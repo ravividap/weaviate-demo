@@ -13,6 +13,18 @@ from urllib import request, error
 
 def get_azure_openai_embedding(text):
     """Generate an embedding using an Azure OpenAI deployment."""
+    required_env_vars = (
+        "AZURE_OPENAI_ENDPOINT",
+        "AZURE_OPENAI_EMBEDDING_DEPLOYMENT",
+        "AZURE_OPENAI_API_KEY",
+    )
+    missing_env_vars = [name for name in required_env_vars if not os.environ.get(name)]
+    if missing_env_vars:
+        raise RuntimeError(
+            "Missing required Azure OpenAI environment variables: "
+            + ", ".join(missing_env_vars)
+        )
+
     endpoint = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/")
     deployment = os.environ["AZURE_OPENAI_EMBEDDING_DEPLOYMENT"]
     api_key = os.environ["AZURE_OPENAI_API_KEY"]
@@ -29,8 +41,10 @@ def get_azure_openai_embedding(text):
         method="POST",
     )
     try:
-        with request.urlopen(req, timeout=30) as response:
+        with request.urlopen(req, timeout=15) as response:
             body = json.loads(response.read().decode("utf-8"))
+            if not body.get("data"):
+                raise RuntimeError(f"Azure OpenAI embedding response missing data: {body}")
             return body["data"][0]["embedding"]
     except error.HTTPError as exc:
         details = exc.read().decode("utf-8")
@@ -241,6 +255,8 @@ def main():
         selected_operations = set(available_operations)
     else:
         selected_operations = {op.strip() for op in selected_input.split(",") if op.strip()}
+        if not selected_operations:
+            raise ValueError("No valid operations were provided. Use 'all' or a comma-separated list.")
         invalid_operations = selected_operations - set(available_operations)
         if invalid_operations:
             raise ValueError(
@@ -255,8 +271,7 @@ def main():
         client = connect_to_weaviate()
         
         uuids = []
-        if selected_operations:
-            create_schema(client)
+        create_schema(client)
 
         if "create" in selected_operations:
             uuids = create_data(client)
