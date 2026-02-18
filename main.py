@@ -7,7 +7,19 @@ import weaviate
 from weaviate.classes.config import Configure, Property, DataType
 from weaviate.classes.query import MetadataQuery
 import os
+from functools import lru_cache
 from langchain_openai import AzureOpenAIEmbeddings
+
+
+@lru_cache(maxsize=1)
+def get_azure_embeddings_client():
+    """Create and cache the Azure OpenAI embeddings client."""
+    return AzureOpenAIEmbeddings(
+        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/"),
+        azure_deployment=os.environ["AZURE_OPENAI_EMBEDDING_DEPLOYMENT"],
+        api_key=os.environ["AZURE_OPENAI_API_KEY"],
+        api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01"),
+    )
 
 
 def get_azure_openai_embedding(text):
@@ -24,13 +36,7 @@ def get_azure_openai_embedding(text):
             + ", ".join(missing_env_vars)
         )
 
-    embeddings_client = AzureOpenAIEmbeddings(
-        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/"),
-        azure_deployment=os.environ["AZURE_OPENAI_EMBEDDING_DEPLOYMENT"],
-        api_key=os.environ["AZURE_OPENAI_API_KEY"],
-        api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01"),
-    )
-    return embeddings_client.embed_query(text)
+    return get_azure_embeddings_client().embed_query(text)
 
 
 def connect_to_weaviate():
