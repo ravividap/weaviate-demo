@@ -9,6 +9,10 @@ from weaviate.classes.query import MetadataQuery
 import os
 from functools import lru_cache
 from langchain_openai import AzureOpenAIEmbeddings
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 
 @lru_cache(maxsize=1)
