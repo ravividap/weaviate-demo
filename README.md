@@ -45,22 +45,27 @@ This will start Weaviate on `http://localhost:8080`
 
 ### 2. Run the Demo Application
 
-Execute the main script to see all basic operations in action:
+Set your Azure OpenAI embedding configuration:
+
+```bash
+export AZURE_OPENAI_ENDPOINT="https://<your-resource>.openai.azure.com"
+export AZURE_OPENAI_API_KEY="<your-api-key>"
+export AZURE_OPENAI_EMBEDDING_DEPLOYMENT="<your-embedding-deployment-name>"
+# Optional (defaults to 2024-02-01)
+export AZURE_OPENAI_API_VERSION="2024-02-01"
+```
+
+Embeddings are generated through `langchain-openai` (`AzureOpenAIEmbeddings`).
+
+Then execute the main script:
 
 ```bash
 python main.py
 ```
 
-The script will:
-1. Connect to the local Weaviate instance
-2. Create a schema for storing articles
-3. Insert sample articles with vector embeddings
-4. Query and display all articles
-5. Filter articles by category
-6. Update an article's properties
-7. Perform vector similarity search
-8. Delete an article
-9. Display final statistics
+The script will prompt you to choose which operations to run (`all` or a comma-separated list such as `create,read,search`).
+- For **search**, the script asks for search text at runtime.
+- For all other operations, the script uses hard-coded sample article data.
 
 ### 3. Stop Weaviate Instance
 
@@ -93,7 +98,7 @@ weaviate-demo/
 Creates a collection called "Article" with properties: title, content, author, and category.
 
 ### Data Operations
-- **Insert**: Add 4 sample articles with placeholder vectors
+- **Insert**: Add 4 sample articles with Azure OpenAI embedding vectors
 - **Query**: Fetch all articles and display their properties
 - **Filter**: Query articles by specific category
 - **Update**: Modify article properties (content and category)
@@ -108,7 +113,7 @@ To customize the demo for your use case:
 
 1. **Modify the schema** in the `create_schema()` function to add/remove properties
 2. **Add your data** in the `create_data()` function
-3. **Use real embeddings** instead of placeholder vectors (integrate with OpenAI, Cohere, etc.)
+3. **Use your preferred embeddings setup** (this demo uses Azure OpenAI embeddings by default)
 4. **Add more operations** like batch operations, complex filters, or aggregations
 
 ## Learn More
